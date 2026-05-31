@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables (secrets)
+.env
+
+# Logs
+logs/
+*.log
+
+# Qdrant embedded data
+qdrant_data/
+qdrant_storage/
+
+# BM25 index data
+bm25_data/
+
+# HuggingFace / model caches
+.cache/
+hf_cache/
+.huggingface/
+transformers_cache/
+models/
+
+# Data uploads (user-generated)
+data/documents/*
+!data/documents/.gitkeep
+data/uploads/
+
+# Exports (generated)
+exports/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Documentation builds
+docs/_build/
+
+# Generated thesis files (keep source .tex, ignore build)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.xdv
+
+# Result files from scripts
+result.json
+inspect_result.txt
+thesis_check.txt
