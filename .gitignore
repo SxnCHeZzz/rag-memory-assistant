@@ -31,7 +31,6 @@ bm25_data/
 hf_cache/
 .huggingface/
 transformers_cache/
-models/
 
 # Data uploads (user-generated)
 data/documents/*
