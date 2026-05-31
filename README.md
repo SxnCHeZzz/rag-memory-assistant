@@ -108,7 +108,7 @@ prompt
 ### 1. Клонирование проекта
 
 ```bash
-git clone <repo>
+git clone https://github.com/SxnCHeZzz/rag-memory-assistant.git
 
 cd rag-memory-assistant
 ```
