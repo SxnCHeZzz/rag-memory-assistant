@@ -157,37 +157,45 @@ http://127.0.0.1:8000/docs
 
 ## Проверка работоспособности
 
-### Health check
-
-```text
-GET /health
-```
-
-Ожидаемый результат:
-
-```json
-{
-  "ollama": true,
-  "qdrant": "embedded"
-}
-```
-
-### Загрузка документа
+### 1. Health check
 
 ```powershell
-curl -X POST ^
-"http://127.0.0.1:8000/documents" ^
--F "file=@demo_documents/fastapi.txt"
+curl.exe http://127.0.0.1:8000/health
 ```
 
-### Вопрос к системе
+Ожидаемый результат: `{"ollama":true,"qdrant":"embedded"}`
+
+### 2. Загрузка документа
 
 ```powershell
-curl -X POST ^
-"http://127.0.0.1:8000/ask" ^
--H "Content-Type: application/json" ^
--d "{\"question\":\"Что такое FastAPI?\",\"session_id\":\"test\"}"
+curl.exe -X POST "http://127.0.0.1:8000/documents" -F "file=@demo_documents/fastapi.txt"
 ```
+
+Ожидаемый результат: `{"filename":"fastapi.txt","chunks_count":4}`
+
+### 3. Проверка retrieval
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/debug/retrieval" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Какие преимущества FastAPI?","top_k":5}'
+```
+
+Ожидаемый результат: `documents` содержит чанки из `fastapi.txt`.
+
+### 4. Вопрос к системе
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/ask" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Какие преимущества FastAPI?","session_id":"test","top_k":5}'
+```
+
+Ожидаемый результат: полный ответ с `sources: ["fastapi.txt"]`.
+
+### Альтернатива: Swagger UI
+
+Откройте `http://127.0.0.1:8000/docs` — интерактивная документация API. Нажмите **Try it out** на любом endpoint, заполните параметры и нажмите **Execute**.
 
 ---
 
