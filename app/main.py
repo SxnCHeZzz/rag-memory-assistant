@@ -162,7 +162,7 @@ async def metrics():
 )
 async def ask(body: AskRequest):
     t_start = time.time()
-    user_id = "default_user"
+    user_id = body.session_id
     session_id = body.session_id
 
     # 1. Conversation context
