@@ -195,6 +195,46 @@ curl.exe -X POST "http://127.0.0.1:8000/ask" `
 
 Ожидаемый результат: полный ответ с `sources: ["fastapi.txt"]`.
 
+### 5. Создание памяти
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/memory" `
+  -H "Content-Type: application/json" `
+  -d '{"user_id":"test","category":"preference","text":"Люблю краткие ответы"}'
+```
+
+Ожидаемый результат: запись с `id`, `user_id`, `category`, `text`.
+
+### 6. Проверка памяти
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/ask" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Расскажи о FastAPI","session_id":"test","top_k":5}'
+```
+
+Ожидаемый результат: `memories_used` содержит `"Люблю краткие ответы"`, ответ короткий.
+
+### 5. Создание памяти
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/memory" `
+  -H "Content-Type: application/json" `
+  -d '{"user_id":"test","category":"preference","text":"Люблю краткие ответы"}'
+```
+
+Ожидаемый результат: запись с `id`, `user_id`, `category`, `text`.
+
+### 6. Проверка памяти
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/ask" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"Расскажи о FastAPI","session_id":"test","top_k":5}'
+```
+
+Ожидаемый результат: `memories_used` содержит `"Люблю краткие ответы"`, ответ короткий.
+
 ### Альтернатива: Swagger UI
 
 Откройте `http://127.0.0.1:8000/docs` — интерактивная документация API. Нажмите **Try it out** на любом endpoint, заполните параметры и нажмите **Execute**.
