@@ -34,14 +34,12 @@ class MemoryStore:
                 collection_name=self.collection,
                 vectors_config=VectorParams(size=self.vector_size, distance=Distance.COSINE),
             )
-            # 2. Создаем индекс для user_id, чтобы фильтры в Embedded Qdrant не возвращали пустоту
+            # 2. Создаем индекс для точного совпадения строк (user_id / session_id)
+            # В Qdrant для этого используется тип "keyword" в виде обычной строки или структуры
             self.client.create_payload_index(
                 collection_name=self.collection,
                 field_name="user_id",
-                field_schema=TextIndexParams(
-                    type="text",
-                    tokenizer="keyword"  
-                )
+                field_schema="keyword"  
             )
 
     def add(self, memory_id: str, vector: list[float], payload: dict):
