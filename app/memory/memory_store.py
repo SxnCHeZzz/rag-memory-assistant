@@ -15,6 +15,7 @@ from app.embeddings.embedder import get_dimension
 from app.vector.client import get_client
 
 
+
 class MemoryStore:
     def __init__(
         self,
@@ -28,9 +29,19 @@ class MemoryStore:
 
     def _ensure_collection(self):
         if not self.client.collection_exists(self.collection):
+            # 1. Создаем коллекцию
             self.client.create_collection(
                 collection_name=self.collection,
                 vectors_config=VectorParams(size=self.vector_size, distance=Distance.COSINE),
+            )
+            # 2. Создаем индекс для user_id, чтобы фильтры в Embedded Qdrant не возвращали пустоту
+            self.client.create_payload_index(
+                collection_name=self.collection,
+                field_name="user_id",
+                field_schema=KeywordIndexParams(
+                    type="keyword",
+                    is_tenant=False
+                )
             )
 
     def add(self, memory_id: str, vector: list[float], payload: dict):
@@ -77,25 +88,39 @@ class MemoryStore:
                 ]
             ),
         )
-        return [
+        hits = [
             dict(hit.payload) | {"id": str(hit.id), "score": hit.score}
             for hit in results
         ]
+        # === ВРЕМЕННЫЙ ДЕБАГ ===
+        if hits:
+            print(f"[Memory DEBUG] user_id={user_id} | query_vector_similarities: {[round(h['score'], 4) for h in hits]}")
+        else:
+            print(f"[Memory DEBUG] user_id={user_id} | NO memories found by filter")
+        return hits
 
     def list_by_user(self, user_id: str, limit: int = 100) -> list[dict]:
-        results = self.client.scroll(
-            collection_name=self.collection,
-            limit=limit,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="user_id",
-                        match=MatchValue(value=user_id),
-                    )
-                ]
-            ),
-        )[0]
-        return [
-            dict(point.payload) | {"id": str(point.id)}
-            for point in results
-        ]
+            scroll_result = self.client.scroll(
+                collection_name=self.collection,
+                limit=limit,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=user_id),
+                        )
+                    ]
+                ),
+            )
+            
+            # Подстраховка для Embedded Qdrant: 
+            # Если вернулся кортеж (records, offset), берем records. Если список — оставляем как есть.
+            if isinstance(scroll_result, tuple):
+                points = scroll_result[0]
+            else:
+                points = scroll_result
+
+            return [
+                dict(point.payload) | {"id": str(point.id)}
+                for point in points
+            ]

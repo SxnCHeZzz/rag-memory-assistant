@@ -6,7 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-# Force UTF-8 on Windows to avoid cp1251/cp866 mojibake
+
 if sys.platform == "win32":
     if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -14,7 +14,7 @@ if sys.platform == "win32":
         sys.stderr.reconfigure(encoding="utf-8")
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
-
+from qdrant_client.models import FilterSelector, Filter, FieldCondition, MatchValue
 from app.config import settings
 from app.ollama_client import OllamaClient, OllamaUnavailableError
 from app.vector.qdrant_client import QdrantService
@@ -59,6 +59,8 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 handler = logging.FileHandler("logs/retrieval.log", encoding="utf-8")
 handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
 logger.addHandler(handler)
+
+
 
 
 @asynccontextmanager
@@ -108,6 +110,27 @@ app = FastAPI(
 )
 app.include_router(debug_router)
 
+@app.post("/clean/test/memories/{user_id}", tags=["debug"])
+async def clear_user_memories(user_id: str):
+    """Временная функция очистки всех памятей пользователя (для отладки)."""
+    try:
+        memory_service.store.client.delete(
+            collection_name=memory_service.store.collection,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="user_id",
+                            match=MatchValue(value=user_id)
+                        )
+                    ]
+                )
+            )
+        )
+        return {"deleted": True, "user_id": user_id, "message": "Все памяти пользователя удалены"}
+    except Exception as e:
+        return {"deleted": False, "error": str(e)}
+    
 
 @app.get(
     "/health",
@@ -162,30 +185,38 @@ async def metrics():
 )
 async def ask(body: AskRequest):
     t_start = time.time()
-    user_id = body.session_id
     session_id = body.session_id
+    
+    # Динамически связываем сессию с пользователем
+    user_id = session_id if session_id else "default_user"
+    if user_id == "default":
+        user_id = "test"
+        session_id = "test"
 
-    # 1. Conversation context
+    print(f"\n[RAG] Получен запрос от user_id: '{user_id}' (session: '{session_id}')", flush=True)
+
+    # 1. Контекст диалога
     conv_messages, conv_summary = conversation_service.get_context(session_id)
 
-    # 2. Extract memory from question
-    extracted = extract_memories(body.question)
-    for category, text in extracted:
-        memory_service.add_memory(user_id=user_id, category=category, text=text)
-
-    # 3. Retrieve documents
+    # 2. Поиск документов (База знаний RAG) с фильтрацией мусора
     t_retrieval = time.time()
-    documents = retriever.retrieve(body.question, top_k=body.top_k)
+    raw_documents = retriever.retrieve(body.question, top_k=body.top_k)
     if reranker.enabled:
-        documents = reranker.rerank(body.question, documents)
+        raw_documents = reranker.rerank(body.question, raw_documents)
+        
+    # Отсекаем чанки документов, у которых score ниже 0.4 (настраиваемый порог)
+    # Это предотвратит попадание левых кусков из fastapi.txt в вопросы про хобби
+    documents = [d for d in raw_documents if d.get("score", 0.0) >= 0.4]
     retrieval_time = time.time() - t_retrieval
 
-    # 4. Retrieve memory
+    # 3. Поиск в долгосрочной памяти (Qdrant)
     memories = memory_service.retrieve_memory(
         query=body.question, user_id=user_id, top_k=3
     )
 
-    # 5. Build prompt
+    print(f"[RAG] Найдено долгосрочных памятей для '{user_id}': {len(memories)}", flush=True)
+
+    # 4. Сборка промпта — теперь memories передаются штатно, без хаков текста вопроса!
     system, prompt = build_prompt(
         question=body.question,
         documents=documents,
@@ -194,7 +225,7 @@ async def ask(body: AskRequest):
         conversation_summary=conv_summary,
     )
 
-    # 6. Generate answer
+    # 5. Генерация ответа через Ollama
     t_gen = time.time()
     try:
         answer = await ollama.generate(prompt=prompt, system=system)
@@ -203,7 +234,7 @@ async def ask(body: AskRequest):
         raise HTTPException(status_code=503, detail=f"LLM unavailable: {e}")
     generation_time = time.time() - t_gen
 
-    # 7. Store conversation turn
+    # 6. Сохраняем ход беседы в историю
     conversation_service.add_turn(session_id, "user", body.question)
     conversation_service.add_turn(session_id, "assistant", answer)
 
@@ -229,7 +260,6 @@ async def ask(body: AskRequest):
         memories_used=[m["text"] for m in memories],
     )
 
-
 @app.post(
     "/debug/retrieval",
     response_model=RetrievalDebugResponse,
@@ -238,7 +268,7 @@ async def ask(body: AskRequest):
     tags=["debug"],
 )
 async def debug_retrieval(body: RetrievalDebugRequest):
-    user_id = "default_user"
+    user_id = body.session_id
     documents = retriever.retrieve(body.question, top_k=body.top_k)
 
     if reranker.enabled:
