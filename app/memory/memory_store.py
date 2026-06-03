@@ -9,7 +9,6 @@ from qdrant_client.models import (
     VectorParams,
     PointStruct,
     TextIndexParams,  
-    TokenizerType
 )
 
 from app.config import settings
@@ -41,7 +40,7 @@ class MemoryStore:
                 field_name="user_id",
                 field_schema=TextIndexParams(
                     type="text",
-                    tokenizer=TokenizerType.KEYWORD  # Поиск по точному совпадению всей строки (ID сессии)
+                    tokenizer="keyword"  
                 )
             )
 
