@@ -268,7 +268,6 @@ async def ask(body: AskRequest):
     tags=["debug"],
 )
 async def debug_retrieval(body: RetrievalDebugRequest):
-    user_id = body.session_id
     documents = retriever.retrieve(body.question, top_k=body.top_k)
 
     if reranker.enabled:
@@ -425,3 +424,14 @@ async def delete_memory(memory_id: str):
 async def clear_conversation(session_id: str):
     conversation_service.clear(session_id)
     return ClearConversationResponse(cleared=True)
+
+
+@app.delete("/memory/{user_id}", tags=["memory"], summary="Clear all user memory")
+async def clear_user_memory(user_id: str):
+    # Если в системе зашит "test", используем его
+    target_user = "test" if user_id in ["default", "test"] else user_id
+    
+    success = memory_service.store.clear_all(user_id=target_user)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear memory")
+    return {"status": "success", "message": f"All memory for user '{target_user}' has been cleared."}

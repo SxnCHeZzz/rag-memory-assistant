@@ -8,12 +8,13 @@ from qdrant_client.models import (
     MatchValue,
     VectorParams,
     PointStruct,
+    TextIndexParams,  
+    TokenizerType
 )
 
 from app.config import settings
 from app.embeddings.embedder import get_dimension
 from app.vector.client import get_client
-
 
 
 class MemoryStore:
@@ -38,9 +39,9 @@ class MemoryStore:
             self.client.create_payload_index(
                 collection_name=self.collection,
                 field_name="user_id",
-                field_schema=KeywordIndexParams(
-                    type="keyword",
-                    is_tenant=False
+                field_schema=TextIndexParams(
+                    type="text",
+                    tokenizer=TokenizerType.KEYWORD  # Поиск по точному совпадению всей строки (ID сессии)
                 )
             )
 
@@ -100,10 +101,37 @@ class MemoryStore:
         return hits
 
     def list_by_user(self, user_id: str, limit: int = 100) -> list[dict]:
-            scroll_result = self.client.scroll(
+        scroll_result = self.client.scroll(
+            collection_name=self.collection,
+            limit=limit,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="user_id",
+                        match=MatchValue(value=user_id),
+                    )
+                ]
+            ),
+        )
+        
+        # Подстраховка для Embedded Qdrant: 
+        if isinstance(scroll_result, tuple):
+            points = scroll_result[0]
+        else:
+            points = scroll_result
+
+        return [
+            dict(point.payload) | {"id": str(point.id)}
+            for point in points
+        ]
+    
+    def clear_all(self, user_id: str) -> bool:
+        """Удаляет ВСЕ записи памяти для конкретного пользователя."""
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            self.client.delete(
                 collection_name=self.collection,
-                limit=limit,
-                scroll_filter=Filter(
+                points_selector=Filter(
                     must=[
                         FieldCondition(
                             key="user_id",
@@ -112,15 +140,8 @@ class MemoryStore:
                     ]
                 ),
             )
-            
-            # Подстраховка для Embedded Qdrant: 
-            # Если вернулся кортеж (records, offset), берем records. Если список — оставляем как есть.
-            if isinstance(scroll_result, tuple):
-                points = scroll_result[0]
-            else:
-                points = scroll_result
-
-            return [
-                dict(point.payload) | {"id": str(point.id)}
-                for point in points
-            ]
+            print(f"[Memory DEBUG] Полная очистка памяти для user_id={user_id} выполнена.")
+            return True
+        except Exception as e:
+            print(f"[Memory DEBUG] Ошибка при очистке памяти: {e}")
+            return False
