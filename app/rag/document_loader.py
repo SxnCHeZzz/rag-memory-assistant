@@ -18,8 +18,6 @@ def _fix_mojibake(text: str) -> str:
     это UTF-8 bytes прочтённые как cp1252.
     """
     try:
-        # Попробовать encode → decode round-trip
-        # cp1252 can encode Ð, Ñ, etc. → then decode as UTF-8
         fixed = text.encode("latin-1").decode("utf-8")
         logger.debug("Fixed mojibake: text was UTF-8 misread as Latin-1")
         return fixed

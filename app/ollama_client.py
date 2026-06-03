@@ -11,11 +11,6 @@ logger = logging.getLogger("ollama")
 
 
 def _fix_windows_host(host: str) -> str:
-    """
-    Windows-specific fix: заменяет localhost на 127.0.0.1
-    чтобы избежать IPv6 resolution (::1).
-    Ollama слушает только IPv4 (127.0.0.1).
-    """
     parsed = urlparse(host)
     hostname = parsed.hostname or ""
 
@@ -50,10 +45,8 @@ class OllamaClient:
         self.num_ctx = num_ctx
         logger.info("OllamaClient initialized: host=%s model=%s", self.host, self.model)
 
-    # ──────────────────────────────────────────────────────────────────
+   
     # PUBLIC API
-    # ──────────────────────────────────────────────────────────────────
-
     async def health(self) -> bool:
         """Проверяет доступность Ollama и наличие модели."""
         try:
